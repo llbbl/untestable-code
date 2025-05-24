@@ -1,31 +1,43 @@
 /**
- * This example demonstrates proper error handling patterns:
+ * This example demonstrates proper error handling with:
  * 
  * 1. Custom error classes
  * 2. Consistent error handling
- * 3. Proper error propagation
- * 4. Error context preservation
- * 5. Promise error handling
- * 6. Error boundaries
+ * 3. Error context preservation
+ * 4. Proper error propagation
+ * 5. Error type safety
+ * 6. Error recovery strategies
  */
 
 /**
  * Custom error classes for different error types
  */
 class UserError extends Error {
-    constructor(message, code, cause) {
+    constructor(message, context = {}) {
         super(message);
         this.name = 'UserError';
-        this.code = code;
-        this.cause = cause;
+        this.context = context;
     }
 }
 
-class DatabaseError extends Error {
-    constructor(message, cause) {
-        super(message);
+class ValidationError extends UserError {
+    constructor(message, context = {}) {
+        super(message, context);
+        this.name = 'ValidationError';
+    }
+}
+
+class NotFoundError extends UserError {
+    constructor(message, context = {}) {
+        super(message, context);
+        this.name = 'NotFoundError';
+    }
+}
+
+class DatabaseError extends UserError {
+    constructor(message, context = {}) {
+        super(message, context);
         this.name = 'DatabaseError';
-        this.cause = cause;
     }
 }
 
@@ -87,237 +99,255 @@ class Database {
 }
 
 /**
- * Testable user service with proper error handling
+ * Class for handling user operations with proper error handling
  */
 class UserService {
-    constructor(db, logger) {
-        this.db = db;
-        this.logger = logger;
+    constructor(dependencies) {
+        this.db = dependencies.db;
+        this.logger = dependencies.logger;
+        this.emailService = dependencies.emailService;
+        this.cache = dependencies.cache;
     }
 
     /**
-     * Proper error handling with custom error class
+     * Get user with proper error handling
      */
     async getUser(userId) {
         try {
-            const user = await this.db.findOne('users', { id: userId });
+            const db = await this.db;
+            const user = await db.collection('users').findOne({ id: userId });
+
             if (!user) {
-                throw new UserError(
-                    `User not found: ${userId}`,
-                    'USER_NOT_FOUND'
-                );
+                throw new NotFoundError('User not found', { userId });
             }
+
             return user;
         } catch (error) {
             if (error instanceof UserError) {
                 throw error;
             }
-            throw new UserError(
-                `Failed to get user: ${userId}`,
-                'GET_USER_ERROR',
-                error
-            );
+            throw new DatabaseError('Failed to get user', { userId, cause: error });
         }
     }
 
     /**
-     * Proper error handling with result type
+     * Create user with proper error handling
      */
-    async updateUser(userId, data) {
+    async createUser(userData) {
         try {
-            const result = await this.db.updateOne(
-                'users',
-                { id: userId },
-                { $set: data }
-            );
-            
-            if (result.matchedCount === 0) {
-                throw new UserError(
-                    `User not found: ${userId}`,
-                    'USER_NOT_FOUND'
-                );
+            // Validate user data
+            this.validateUserData(userData);
+
+            const db = await this.db;
+            const result = await db.collection('users').insertOne(userData);
+
+            if (!result.insertedId) {
+                throw new DatabaseError('Failed to create user', { userData });
             }
-            
-            return {
-                success: true,
-                updated: result.modifiedCount > 0
-            };
+
+            // Send welcome email
+            try {
+                await this.emailService.sendWelcomeEmail(userData.email);
+            } catch (error) {
+                this.logger.warn('Failed to send welcome email', {
+                    userId: result.insertedId,
+                    error: error.message
+                });
+            }
+
+            this.logger.info('User created', { userId: result.insertedId });
+            return result.insertedId;
         } catch (error) {
             if (error instanceof UserError) {
                 throw error;
             }
-            throw new UserError(
-                `Failed to update user: ${userId}`,
-                'UPDATE_USER_ERROR',
-                error
-            );
+            throw new DatabaseError('Failed to create user', { userData, cause: error });
         }
     }
 
     /**
-     * Proper error handling with consistent pattern
+     * Update user with proper error handling
+     */
+    async updateUser(userId, updates) {
+        try {
+            // Validate updates
+            this.validateUserUpdates(updates);
+
+            const db = await this.db;
+            const result = await db.collection('users').updateOne(
+                { id: userId },
+                { $set: updates }
+            );
+
+            if (result.matchedCount === 0) {
+                throw new NotFoundError('User not found', { userId });
+            }
+
+            if (result.modifiedCount === 0) {
+                throw new ValidationError('No changes made', { userId, updates });
+            }
+
+            this.cache.delete(userId);
+            return true;
+        } catch (error) {
+            if (error instanceof UserError) {
+                throw error;
+            }
+            throw new DatabaseError('Failed to update user', { userId, updates, cause: error });
+        }
+    }
+
+    /**
+     * Delete user with proper error handling
      */
     async deleteUser(userId) {
         try {
-            const result = await this.db.deleteOne('users', { id: userId });
-            
+            const user = await this.getUser(userId);
+
+            if (user.status === 'active') {
+                throw new ValidationError('Cannot delete active user', { userId });
+            }
+
+            const db = await this.db;
+            const result = await db.collection('users').deleteOne({ id: userId });
+
             if (result.deletedCount === 0) {
-                throw new UserError(
-                    `User not found: ${userId}`,
-                    'USER_NOT_FOUND'
-                );
+                throw new DatabaseError('Failed to delete user', { userId });
             }
-            
-            return {
-                success: true,
-                deleted: true
-            };
+
+            this.cache.delete(userId);
+
+            // Send goodbye email
+            try {
+                await this.emailService.sendGoodbyeEmail(user.email);
+            } catch (error) {
+                this.logger.warn('Failed to send goodbye email', {
+                    userId,
+                    error: error.message
+                });
+            }
+
+            return true;
         } catch (error) {
             if (error instanceof UserError) {
                 throw error;
             }
-            throw new UserError(
-                `Failed to delete user: ${userId}`,
-                'DELETE_USER_ERROR',
-                error
-            );
+            throw new DatabaseError('Failed to delete user', { userId, cause: error });
         }
     }
 
     /**
-     * Proper error handling with logging
-     */
-    async validateUser(userId) {
-        try {
-            const user = await this.db.findOne('users', { id: userId });
-            if (!user) {
-                this.logger.warn(`User validation failed: ${userId}`);
-                throw new UserError(
-                    `User not found: ${userId}`,
-                    'USER_NOT_FOUND'
-                );
-            }
-            return {
-                valid: true,
-                user
-            };
-        } catch (error) {
-            this.logger.error(`User validation error: ${error.message}`);
-            if (error instanceof UserError) {
-                throw error;
-            }
-            throw new UserError(
-                `Failed to validate user: ${userId}`,
-                'VALIDATION_ERROR',
-                error
-            );
-        }
-    }
-
-    /**
-     * Proper promise error handling
+     * Get user with orders with proper error handling
      */
     async getUserWithOrders(userId) {
         try {
-            const [user, orders] = await Promise.all([
-                this.db.findOne('users', { id: userId }),
-                this.db.query('orders', { userId })
-            ]);
+            const user = await this.getUser(userId);
+            const db = await this.db;
 
-            if (!user) {
-                throw new UserError(
-                    `User not found: ${userId}`,
-                    'USER_NOT_FOUND'
-                );
-            }
+            const orders = await db.collection('orders')
+                .find({ userId })
+                .toArray();
 
-            return {
-                ...user,
-                orders
-            };
+            return { user, orders };
         } catch (error) {
             if (error instanceof UserError) {
                 throw error;
             }
-            throw new UserError(
-                `Failed to get user with orders: ${userId}`,
-                'GET_USER_ORDERS_ERROR',
-                error
-            );
+            throw new DatabaseError('Failed to get user with orders', { userId, cause: error });
         }
     }
 
     /**
-     * Proper error propagation with context
+     * Validate user with proper error handling
      */
-    async getUserWithProfile(userId) {
+    async validateUser(userId) {
         try {
-            const [user, profile] = await Promise.all([
-                this.db.findOne('users', { id: userId }),
-                this.getUserProfile(userId)
-            ]);
+            const user = await this.getUser(userId);
 
-            if (!user) {
-                throw new UserError(
-                    `User not found: ${userId}`,
-                    'USER_NOT_FOUND'
-                );
+            if (user.status !== 'active') {
+                throw new ValidationError('User is not active', { userId });
             }
 
-            return {
-                ...user,
-                profile
-            };
+            return true;
         } catch (error) {
             if (error instanceof UserError) {
                 throw error;
             }
-            throw new UserError(
-                `Failed to get user with profile: ${userId}`,
-                'GET_USER_PROFILE_ERROR',
-                error
-            );
+            throw new DatabaseError('Failed to validate user', { userId, cause: error });
         }
     }
 
     /**
-     * Proper error handling with clear boundaries
+     * Get user preferences with proper error handling
      */
-    async getUserProfile(userId) {
+    async getUserPreferences(userId) {
         try {
-            const profile = await this.db.findOne('profiles', { userId });
-            if (!profile) {
-                throw new UserError(
-                    `Profile not found for user: ${userId}`,
-                    'PROFILE_NOT_FOUND'
-                );
+            // Check cache first
+            const cachedPreferences = await this.cache.get(userId);
+            if (cachedPreferences) {
+                return cachedPreferences;
             }
-            return profile;
+
+            const user = await this.getUser(userId);
+            const db = await this.db;
+
+            const preferences = await db.collection('preferences')
+                .findOne({ userId });
+
+            if (!preferences) {
+                return { theme: 'default', notifications: true };
+            }
+
+            await this.cache.set(userId, preferences);
+            return preferences;
         } catch (error) {
             if (error instanceof UserError) {
                 throw error;
             }
-            throw new UserError(
-                `Failed to get user profile: ${userId}`,
-                'GET_PROFILE_ERROR',
-                error
-            );
+            throw new DatabaseError('Failed to get user preferences', { userId, cause: error });
         }
+    }
+
+    /**
+     * Validate user data
+     */
+    validateUserData(userData) {
+        if (!userData.email) {
+            throw new ValidationError('Email is required', { userData });
+        }
+        if (!userData.name) {
+            throw new ValidationError('Name is required', { userData });
+        }
+    }
+
+    /**
+     * Validate user updates
+     */
+    validateUserUpdates(updates) {
+        if (updates.email && !this.isValidEmail(updates.email)) {
+            throw new ValidationError('Invalid email format', { updates });
+        }
+    }
+
+    /**
+     * Validate email format
+     */
+    isValidEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     }
 }
 
 /**
- * Factory function to create a configured user service
+ * Factory function for creating UserService
  */
-async function createUserService(dbConnection, logger) {
-    const db = new Database(dbConnection);
-    return new UserService(db, logger);
-}
+const createUserService = (dependencies) => {
+    return new UserService(dependencies);
+};
 
 module.exports = {
+    createUserService,
     UserError,
-    DatabaseError,
-    Database,
-    UserService,
-    createUserService
+    ValidationError,
+    NotFoundError,
+    DatabaseError
 }; 

@@ -1,142 +1,142 @@
-# Error Handling Anti-Patterns Example
+# Error Handling Anti-Patterns
 
-This example demonstrates common error handling anti-patterns that make testing difficult, and how to refactor them into testable code.
+This example demonstrates common error handling anti-patterns in JavaScript and how to refactor them for better testability and maintainability.
 
-## The Problem
-
-The `untestable.js` file demonstrates several anti-patterns that make code difficult to test:
+## Anti-Patterns
 
 1. **Swallowing Errors**
 
-   - Errors are caught and silently logged
-   - No error propagation
-   - Difficult to test error cases
-   - Hidden failure modes
+   - Silently catching and ignoring errors
+   - Logging errors without proper handling
+   - Returning null/undefined instead of throwing errors
 
 2. **Generic Error Handling**
 
-   - All errors are treated the same
-   - No error type differentiation
-   - Difficult to test specific error cases
-   - Loss of error context
+   - Using generic Error class for all errors
+   - Not distinguishing between different error types
+   - Missing error context and details
 
 3. **Inconsistent Error Handling**
 
-   - Different methods handle errors differently
-   - No standard error handling pattern
-   - Difficult to test error cases consistently
-   - Unpredictable behavior
+   - Different error handling patterns in the same codebase
+   - Mixing error handling styles
+   - Inconsistent error propagation
 
-4. **Error State Mutation**
+4. **Error Type Confusion**
 
-   - Global error state
-   - Side effects in error handling
-   - Difficult to test error cases in isolation
-   - State leaks between tests
+   - Not distinguishing between expected and unexpected errors
+   - Treating all errors the same way
+   - Missing error type hierarchy
 
-5. **Unhandled Promise Rejections**
+5. **Error Propagation Issues**
 
-   - Promises without error handling
-   - Global unhandled rejection handler
-   - Difficult to test error cases
-   - Unpredictable behavior
+   - Not properly propagating errors up the call stack
+   - Losing error context during propagation
+   - Not handling errors at the right level
 
-6. **Error Propagation Issues**
-   - Lost error context
-   - Generic error messages
-   - Difficult to debug issues
-   - Hard to test error cases
+6. **Missing Error Context**
+   - Not including relevant data in error messages
+   - Missing stack traces
+   - Not preserving original error information
 
-## The Solution
-
-The `testable.js` file shows how to refactor the code to be more testable:
+## Solutions
 
 1. **Custom Error Classes**
 
-   - Domain-specific error types
-   - Error codes for categorization
-   - Error context preservation
-   - Easy to test error types
+   - Create specific error types for different scenarios
+   - Inherit from base error classes
+   - Include relevant context in error objects
 
 2. **Consistent Error Handling**
 
-   - Standard error handling pattern
-   - Clear error boundaries
-   - Predictable behavior
-   - Easy to test error cases
+   - Use consistent error handling patterns
+   - Handle errors at appropriate levels
+   - Follow error handling best practices
 
-3. **Proper Error Propagation**
+3. **Error Context Preservation**
 
-   - Error context preservation
-   - Clear error boundaries
-   - Error type preservation
-   - Easy to test error flow
+   - Include relevant data in error objects
+   - Preserve original error information
+   - Add context to error messages
 
-4. **Error Context Preservation**
+4. **Proper Error Propagation**
 
-   - Original error as cause
-   - Detailed error messages
-   - Error type information
-   - Easy to debug issues
+   - Propagate errors up the call stack
+   - Handle errors at appropriate levels
+   - Maintain error context during propagation
 
-5. **Promise Error Handling**
+5. **Error Type Safety**
 
-   - Proper promise error handling
-   - No unhandled rejections
-   - Clear error boundaries
-   - Easy to test async errors
+   - Use type checking for errors
+   - Distinguish between expected and unexpected errors
+   - Handle different error types appropriately
 
-6. **Error Boundaries**
-   - Clear error handling boundaries
-   - Consistent error handling
-   - No global error state
-   - Easy to test error cases
+6. **Error Recovery Strategies**
+   - Implement retry mechanisms
+   - Provide fallback behavior
+   - Handle partial failures gracefully
 
-## Testing
+## Testing Strategies
 
-The `test.js` file demonstrates how to test the refactored code:
+1. **Testing Custom Error Classes**
 
-1. **Test Setup**
+   - Verify error inheritance
+   - Check error properties
+   - Validate error context
 
-   - Mock dependencies
-   - Clear test boundaries
-   - Isolated tests
-   - Predictable behavior
+2. **Testing Error Context**
 
-2. **Test Cases**
+   - Verify error messages
+   - Check included context
+   - Validate error properties
 
-   - Success scenarios
-   - Error scenarios
-   - Error type verification
-   - Error context verification
+3. **Testing Error Propagation**
 
-3. **Benefits**
-   - Reliable tests
-   - Clear test boundaries
-   - Easy to maintain
-   - Good coverage
+   - Verify error handling at different levels
+   - Check error transformation
+   - Validate error context preservation
+
+4. **Testing Error Recovery**
+
+   - Verify retry mechanisms
+   - Check fallback behavior
+   - Validate partial failure handling
+
+5. **Testing Error Boundaries**
+
+   - Verify error isolation
+   - Check error containment
+   - Validate error handling scope
+
+6. **Testing Error Logging**
+   - Verify error logging
+   - Check log levels
+   - Validate log messages
 
 ## Key Lessons
 
-1. **Use Custom Error Classes**
+1. **Error Types**
 
-   - Define domain-specific errors
-   - Include error codes
+   - Use specific error types
+   - Create error hierarchies
+   - Include relevant context
+
+2. **Error Handling**
+
+   - Handle errors consistently
+   - Propagate errors properly
    - Preserve error context
-   - Make errors testable
 
-2. **Handle Errors Consistently**
+3. **Error Recovery**
 
-   - Use standard patterns
-   - Clear error boundaries
-   - Proper error propagation
-   - Make error handling testable
+   - Implement retry mechanisms
+   - Provide fallback behavior
+   - Handle partial failures
 
-3. **Design for Testing**
-   - Consider error cases
-   - Make errors verifiable
-   - Keep error handling clear
-   - Make error flow testable
+4. **Error Testing**
+   - Test error scenarios
+   - Verify error handling
+   - Validate error recovery
 
 ## Running the Tests
 
@@ -148,9 +148,8 @@ npm install
 npm test
 ```
 
-## Notes
+## Files
 
-- This example uses Jest for testing
-- The code is simplified for demonstration purposes
-- Real-world applications might have additional complexity
-- The principles apply to any JavaScript/TypeScript codebase
+- `untestable.js` - Demonstrates common error handling anti-patterns
+- `testable.js` - Shows how to refactor the code for better error handling
+- `test.js` - Contains tests for the refactored code

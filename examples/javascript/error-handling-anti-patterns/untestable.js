@@ -4,22 +4,20 @@
  * 1. Swallowing errors
  * 2. Generic error handling
  * 3. Inconsistent error handling
- * 4. Error state mutation
- * 5. Unhandled promise rejections
- * 6. Error propagation issues
+ * 4. Error type confusion
+ * 5. Error propagation issues
+ * 6. Missing error context
  */
 
-// Anti-pattern: Global error state
-let lastError = null;
-let errorCount = 0;
-
 /**
- * Anti-pattern: Service with poor error handling
+ * Anti-pattern: Class with poor error handling
  */
 class UserService {
     constructor() {
-        // Anti-pattern: Direct dependency on external service
-        this.db = require('mongodb').connect('mongodb://localhost:27017');
+        this.db = require('mongodb').connect('mongodb://localhost:27017/myapp');
+        this.logger = require('./logger');
+        this.emailService = require('./email-service');
+        this.cache = new Map();
     }
 
     /**
@@ -32,7 +30,7 @@ class UserService {
             return user;
         } catch (error) {
             // Anti-pattern: Swallowing error
-            console.error('Error fetching user:', error);
+            console.log('Error getting user:', error.message);
             return null;
         }
     }
@@ -40,118 +38,184 @@ class UserService {
     /**
      * Anti-pattern: Generic error handling
      */
-    async updateUser(userId, data) {
+    async createUser(userData) {
         try {
             const db = await this.db;
-            await db.collection('users').updateOne(
+            const result = await db.collection('users').insertOne(userData);
+            
+            // Anti-pattern: Inconsistent error handling
+            if (!result.insertedId) {
+                throw new Error('Failed to create user');
+            }
+
+            // Anti-pattern: Missing error context
+            await this.emailService.sendWelcomeEmail(userData.email);
+            await this.logger.log('User created', { userId: result.insertedId });
+
+            return result.insertedId;
+        } catch (error) {
+            // Anti-pattern: Generic error handling
+            throw new Error('An error occurred');
+        }
+    }
+
+    /**
+     * Anti-pattern: Error type confusion
+     */
+    async updateUser(userId, updates) {
+        try {
+            const db = await this.db;
+            const result = await db.collection('users').updateOne(
                 { id: userId },
-                { $set: data }
+                { $set: updates }
             );
+
+            // Anti-pattern: Error type confusion
+            if (result.matchedCount === 0) {
+                throw 'User not found';
+            }
+
+            // Anti-pattern: Inconsistent error handling
+            if (result.modifiedCount === 0) {
+                throw new Error('No changes made');
+            }
+
+            this.cache.delete(userId);
             return true;
         } catch (error) {
             // Anti-pattern: Generic error handling
-            console.error('An error occurred:', error);
-            return false;
-        }
-    }
-
-    /**
-     * Anti-pattern: Inconsistent error handling
-     */
-    async deleteUser(userId) {
-        try {
-            const db = await this.db;
-            const result = await db.collection('users').deleteOne({ id: userId });
-            if (result.deletedCount === 0) {
-                // Anti-pattern: Inconsistent error handling
-                throw new Error('User not found');
-            }
-            return true;
-        } catch (error) {
-            // Anti-pattern: Different error handling pattern
-            if (error.message === 'User not found') {
+            if (error === 'User not found') {
                 return false;
             }
-            throw error;
+            throw new Error('Failed to update user');
         }
-    }
-
-    /**
-     * Anti-pattern: Error state mutation
-     */
-    async validateUser(userId) {
-        try {
-            const db = await this.db;
-            const user = await db.collection('users').findOne({ id: userId });
-            if (!user) {
-                // Anti-pattern: Mutating global state
-                lastError = new Error('User not found');
-                errorCount++;
-                return false;
-            }
-            return true;
-        } catch (error) {
-            // Anti-pattern: Mutating global state
-            lastError = error;
-            errorCount++;
-            return false;
-        }
-    }
-
-    /**
-     * Anti-pattern: Unhandled promise rejections
-     */
-    async getUserWithOrders(userId) {
-        const db = await this.db;
-        const user = await db.collection('users').findOne({ id: userId });
-        
-        // Anti-pattern: Unhandled promise rejection
-        const orders = db.collection('orders').find({ userId }).toArray();
-        
-        return {
-            ...user,
-            orders
-        };
     }
 
     /**
      * Anti-pattern: Error propagation issues
      */
-    async getUserWithProfile(userId) {
+    async deleteUser(userId) {
         try {
             const db = await this.db;
-            const user = await db.collection('users').findOne({ id: userId });
-            
-            // Anti-pattern: Error propagation issues
-            const profile = await this.getUserProfile(userId);
-            
-            return {
-                ...user,
-                profile
-            };
+            const user = await this.getUser(userId);
+
+            // Anti-pattern: Missing error context
+            if (!user) {
+                throw new Error('User not found');
+            }
+
+            // Anti-pattern: Inconsistent error handling
+            if (user.status === 'active') {
+                throw new Error('Cannot delete active user');
+            }
+
+            await db.collection('users').deleteOne({ id: userId });
+            this.cache.delete(userId);
+
+            // Anti-pattern: Swallowing errors
+            try {
+                await this.emailService.sendGoodbyeEmail(user.email);
+            } catch (error) {
+                console.log('Failed to send goodbye email:', error.message);
+            }
+
+            return true;
         } catch (error) {
-            // Anti-pattern: Losing error context
-            throw new Error('Failed to get user with profile');
+            // Anti-pattern: Generic error handling
+            throw new Error('Failed to delete user');
         }
     }
 
     /**
-     * Anti-pattern: Hidden error handling
+     * Anti-pattern: Missing error context
      */
-    async getUserProfile(userId) {
-        const db = await this.db;
-        return db.collection('profiles').findOne({ userId });
+    async getUserWithOrders(userId) {
+        try {
+            const db = await this.db;
+            const user = await db.collection('users').findOne({ id: userId });
+
+            // Anti-pattern: Missing error context
+            if (!user) {
+                throw new Error('User not found');
+            }
+
+            const orders = await db.collection('orders')
+                .find({ userId })
+                .toArray();
+
+            // Anti-pattern: Inconsistent error handling
+            if (orders.length === 0) {
+                return { user, orders: [] };
+            }
+
+            return { user, orders };
+        } catch (error) {
+            // Anti-pattern: Generic error handling
+            throw new Error('Failed to get user with orders');
+        }
+    }
+
+    /**
+     * Anti-pattern: Error type confusion
+     */
+    async validateUser(userId) {
+        try {
+            const db = await this.db;
+            const user = await db.collection('users').findOne({ id: userId });
+
+            // Anti-pattern: Error type confusion
+            if (!user) {
+                return false;
+            }
+
+            // Anti-pattern: Inconsistent error handling
+            if (user.status !== 'active') {
+                throw 'User is not active';
+            }
+
+            return true;
+        } catch (error) {
+            // Anti-pattern: Generic error handling
+            if (error === 'User is not active') {
+                return false;
+            }
+            throw new Error('Failed to validate user');
+        }
+    }
+
+    /**
+     * Anti-pattern: Error propagation issues
+     */
+    async getUserPreferences(userId) {
+        try {
+            // Anti-pattern: Swallowing errors
+            if (this.cache.has(userId)) {
+                return this.cache.get(userId);
+            }
+
+            const db = await this.db;
+            const user = await db.collection('users').findOne({ id: userId });
+
+            // Anti-pattern: Missing error context
+            if (!user) {
+                throw new Error('User not found');
+            }
+
+            const preferences = await db.collection('preferences')
+                .findOne({ userId });
+
+            // Anti-pattern: Inconsistent error handling
+            if (!preferences) {
+                return { theme: 'default', notifications: true };
+            }
+
+            this.cache.set(userId, preferences);
+            return preferences;
+        } catch (error) {
+            // Anti-pattern: Generic error handling
+            throw new Error('Failed to get user preferences');
+        }
     }
 }
 
-// Anti-pattern: Global error handler
-process.on('unhandledRejection', (error) => {
-    console.error('Unhandled promise rejection:', error);
-    // Anti-pattern: Swallowing unhandled rejections
-});
-
-module.exports = {
-    UserService,
-    getLastError: () => lastError,
-    getErrorCount: () => errorCount
-}; 
+module.exports = UserService; 
