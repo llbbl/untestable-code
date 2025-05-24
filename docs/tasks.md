@@ -19,12 +19,12 @@ This document outlines the tasks for creating a curated collection of code examp
 ### **Research & Categorization**
 
 - [x] Research and compile a list of common anti-patterns that lead to untestable code, specific to each chosen language. Break these out into a separate file for each language.
-- [ ] Categorize these anti-patterns (e.g., "Tight Coupling," "Global State Abuse," "Complex Conditional Logic," "Non-Deterministic Behavior," "Untestable Private Methods," "Side Effects in Constructors").
-- [ ] For each anti-pattern, describe its negative impact on testability.
+- [x] Categorize these anti-patterns (e.g., "Tight Coupling," "Global State Abuse," "Complex Conditional Logic," "Non-Deterministic Behavior," "Untestable Private Methods," "Side Effects in Constructors").
+- [x] For each anti-pattern, describe its negative impact on testability.
 
 ### **Prioritization**
 
-- [ ] Prioritize which anti-patterns to focus on initially for each language, based on commonality and impact.
+- [x] Prioritize which anti-patterns to focus on initially for each language, based on commonality and impact.
 
 ## **3. Code Example Development**
 
