@@ -9,21 +9,16 @@ This document outlines the tasks for creating a curated collection of code examp
 - [x] Clearly define the characteristics of "untestable code" for this project (e.g., hard-coded dependencies, global state, hidden side effects, complex logic, non-determinism, private method complexity).
 - [x] Establish criteria for what makes an example "good" for demonstrating an untestable pattern.
 
-### **Target Audience & Goals**
-
-- [ ] Identify the primary target audience (e.g., junior to mid-level developers, students, educators).
-- [ ] Define the main learning objectives for users of this library.
-
 ### **Language Selection**
 
-- [ ] Determine the initial set of programming languages to be included (e.g., Java, Python, JavaScript, C\\#, Go, Ruby).
-- [ ] Plan for potential future expansion to other languages.
+- [x] Determine the initial set of programming languages to be included (e.g., Java, Python, JavaScript, C\\#, Go, Ruby).
+- [x] Plan for potential future expansion to other languages.
 
 ## **2. Anti-Pattern Identification & Curation**
 
 ### **Research & Categorization**
 
-- [ ] Research and compile a list of common anti-patterns that lead to untestable code, specific to each chosen language.
+- [x] Research and compile a list of common anti-patterns that lead to untestable code, specific to each chosen language. Break these out into a separate file for each language.
 - [ ] Categorize these anti-patterns (e.g., "Tight Coupling," "Global State Abuse," "Complex Conditional Logic," "Non-Deterministic Behavior," "Untestable Private Methods," "Side Effects in Constructors").
 - [ ] For each anti-pattern, describe its negative impact on testability.
 

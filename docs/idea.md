@@ -104,3 +104,88 @@ A good example of untestable code should meet the following criteria:
    - The example should be accompanied by a clear explanation of the anti-pattern it demonstrates
 
 These criteria ensure that our examples are not just theoretical exercises but practical learning tools that help developers recognize and avoid untestable code patterns in their own work.
+
+# Language Selection
+
+## Initial Languages
+
+We will start with the following languages, chosen for their widespread use and distinct characteristics that often lead to untestable code patterns:
+
+1. **JavaScript/TypeScript**
+
+   - Dynamic typing and prototype-based inheritance
+   - Asynchronous patterns and callbacks
+   - Global scope and module system quirks
+   - Heavy use in web development
+
+2. **Python**
+
+   - Dynamic typing and duck typing
+   - Global interpreter lock (GIL)
+   - Module-level code execution
+   - Popular in data science and scripting
+
+3. **Java**
+
+   - Static typing and OOP principles
+   - Enterprise patterns and frameworks
+   - Reflection and annotation processing
+   - Widely used in enterprise applications
+
+4. **C#**
+
+   - Static typing with modern features
+   - LINQ and async/await patterns
+   - Dependency injection frameworks
+   - Common in Windows and .NET development
+
+5. **Go**
+   - Static typing with simplicity focus
+   - Goroutines and channels
+   - Interface-based programming
+   - Growing in cloud-native development
+
+## Future Language Expansion
+
+The following languages are candidates for future inclusion:
+
+1. **Ruby**
+
+   - Metaprogramming capabilities
+   - Dynamic typing
+   - Rails framework patterns
+
+2. **Rust**
+
+   - Ownership and borrowing
+   - Zero-cost abstractions
+   - Systems programming patterns
+
+3. **Kotlin**
+
+   - JVM interoperability
+   - Coroutines
+   - Android development patterns
+
+4. **Swift**
+   - Protocol-oriented programming
+   - Optionals and memory management
+   - iOS/macOS development patterns
+
+## Selection Criteria
+
+Languages were chosen based on:
+
+1. **Industry Adoption**: Languages with significant market share and active communities
+2. **Testing Challenges**: Languages with unique features that often lead to testing difficulties
+3. **Learning Value**: Languages that demonstrate distinct patterns of untestable code
+4. **Community Support**: Languages with active testing communities and established practices
+5. **Documentation Quality**: Languages with good documentation and learning resources
+
+This selection provides a good balance of:
+
+- Different programming paradigms
+- Various application domains
+- Different levels of type safety
+- Different concurrency models
+- Different ecosystem characteristics
