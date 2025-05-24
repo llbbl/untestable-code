@@ -1,3 +1,19 @@
+
+
+Based on the directory listing and our progress, here's the status of Python anti-patterns:
+Completed:
+✅ Hard-coded Dependencies
+✅ Complex Logic
+✅ Global State (just created)
+✅ Hidden Side Effects
+Still to do:
+Non-deterministic Behavior
+Private Method Complexity
+Tight Coupling
+Constructor Side Effects
+
+
+
 Based on the documentation and our progress so far, here are the high-priority anti-patterns for JavaScript/TypeScript that we should work on:
 
 1. ✅ **Hard-coded Dependencies**
